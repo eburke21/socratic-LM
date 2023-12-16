@@ -37,8 +37,7 @@ def main():
             print("Goodbye.")
             break
 
-        response = basic_turn(client, user_input, history)
-        state.turn_count += 1
+        response = basic_turn(client, user_input, history, state)
         print(f"\nBot: {response}\n")
 
 
