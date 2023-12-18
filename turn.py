@@ -1,9 +1,16 @@
-"""Turn function for the two-stage pipeline: extraction → state update → Socratic generation."""
+"""Turn function: extraction → contradiction check → (optional summary) → Socratic generation."""
 
+import tiktoken
 from openai import OpenAI
 from conversation import ConversationHistory
 from dialogue_state import DialogueState
 from extraction import extract_claims
+from contradiction import detect_contradictions
+from summarization import should_summarize, generate_summary
+
+# Token budget constants (GPT-4 8K context window)
+TOKEN_WARNING_THRESHOLD = 6000  # warn when approaching context limit
+TOKEN_ENCODING = "cl100k_base"  # GPT-4 tokenizer
 
 SOCRATIC_SYSTEM_PROMPT = """\
 You are a Socratic interlocutor — a patient, incisive philosophical dialogue partner. Your sole purpose is to help the user think more clearly about their own reasoning through targeted questioning. You are never a lecturer, never an encyclopedia, and never an advice-giver.
@@ -44,6 +51,18 @@ Use this state actively:
 """
 
 
+def count_tokens(messages: list[dict]) -> int:
+    """Estimate the token count for a list of chat messages using tiktoken."""
+    enc = tiktoken.get_encoding(TOKEN_ENCODING)
+    total = 0
+    for msg in messages:
+        # Each message has ~4 tokens of overhead (role, delimiters)
+        total += 4
+        total += len(enc.encode(msg.get("content", "")))
+    total += 2  # reply priming tokens
+    return total
+
+
 def build_system_prompt(state: DialogueState) -> str:
     """Build the Socratic system prompt with the current dialogue state injected."""
     return SOCRATIC_SYSTEM_PROMPT.replace("{state_json}", state.to_json())
@@ -55,11 +74,14 @@ def basic_turn(
     history: ConversationHistory,
     state: DialogueState,
 ) -> str:
-    """Execute a single conversational turn with claim extraction and Socratic generation.
+    """Execute a single conversational turn with the full pipeline.
 
     1. Extract claims from the user's message (Stage 1 — deterministic, temp=0)
-    2. Update DialogueState with new positions and assumptions
-    3. Generate a Socratic response with state-aware prompt (Stage 2 — creative, temp=0.8)
+    2. Check new positions against prior positions for contradictions (Stage 2 — deterministic, temp=0)
+    3. Update DialogueState with new positions, assumptions, and contradictions
+    4. If summarization interval hit, generate a dialectical summary (Stage 3a — temp=0.3)
+    5. Generate a Socratic response with state-aware prompt (Stage 3b — creative, temp=0.8)
+    6. If token budget is exceeded, compress history
     """
     # --- Stage 1: Claim extraction ---
     claims = extract_claims(client, user_message, state.user_positions)
@@ -67,8 +89,25 @@ def basic_turn(
     new_positions = claims.get("positions", [])
     new_assumptions = claims.get("assumptions", [])
 
+    # --- Stage 2: Contradiction detection ---
+    # Capture prior positions BEFORE extending, so we compare new vs. prior
+    prior_positions = list(state.user_positions)
+    contradictions = detect_contradictions(client, prior_positions, new_positions)
+
+    # Format contradictions as readable strings for state storage
+    new_contradiction_strings = []
+    for c in contradictions:
+        tension_str = (
+            f"'{c['new_position']}' vs. '{c['prior_position']}': {c['tension']}"
+        )
+        # Dedup: don't log the same tension twice
+        if tension_str not in state.contradictions:
+            new_contradiction_strings.append(tension_str)
+
+    # --- Update state ---
     state.user_positions.extend(new_positions)
     state.assumptions_surfaced.extend(new_assumptions)
+    state.contradictions.extend(new_contradiction_strings)
     state.turn_count += 1
 
     # Debug output
@@ -76,12 +115,34 @@ def basic_turn(
         print(f"  [state] Positions: {state.user_positions}")
         print(f"  [state] Assumptions: {state.assumptions_surfaced}")
         print(f"  [state] Turn: {state.turn_count}")
+    if new_contradiction_strings:
+        print(f"  [state] NEW CONTRADICTIONS: {new_contradiction_strings}")
 
-    # --- Stage 2: Socratic response generation ---
+    # --- Stage 3a: Periodic summarization ---
+    summary = ""
+    if should_summarize(state.turn_count):
+        summary = generate_summary(client, state)
+        if summary:
+            print(f"  [summary] Triggered at turn {state.turn_count}")
+
+    # --- Stage 3b: Socratic response generation ---
     system_prompt = build_system_prompt(state)
 
     history.add_user_message(user_message)
     messages = [{"role": "system", "content": system_prompt}] + history.get_messages()
+
+    # --- Token budget check ---
+    token_count = count_tokens(messages)
+    print(f"  [tokens] {token_count} tokens (threshold: {TOKEN_WARNING_THRESHOLD})")
+
+    if token_count > TOKEN_WARNING_THRESHOLD:
+        print(f"  [tokens] WARNING: Approaching context limit. Compressing history...")
+        compression_summary = generate_summary(client, state) if not summary else summary
+        history.compress(compression_summary)
+        # Rebuild messages with compressed history
+        messages = [{"role": "system", "content": system_prompt}] + history.get_messages()
+        new_count = count_tokens(messages)
+        print(f"  [tokens] After compression: {new_count} tokens (saved {token_count - new_count})")
 
     response = client.chat.completions.create(
         model="gpt-4",
@@ -90,5 +151,10 @@ def basic_turn(
     )
 
     assistant_reply = response.choices[0].message.content
+
+    # Prepend summary to the response if triggered
+    if summary:
+        assistant_reply = f"**Dialectical Progress Summary:**\n{summary}\n\n---\n\n{assistant_reply}"
+
     history.add_assistant_message(assistant_reply)
     return assistant_reply
