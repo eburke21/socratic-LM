@@ -2,6 +2,7 @@
 
 import json
 from openai import OpenAI
+from retry import retry_api_call
 
 CONTRADICTION_SYSTEM_PROMPT = """\
 You are a philosophical contradiction detector. Your job is to compare a list of NEWLY extracted positions from the user's latest message against their PRIOR positions from earlier in the conversation.
@@ -68,7 +69,8 @@ def detect_contradictions(
     )
 
     try:
-        response = client.chat.completions.create(
+        response = retry_api_call(
+            client.chat.completions.create,
             model="gpt-4",
             messages=[
                 {"role": "system", "content": CONTRADICTION_SYSTEM_PROMPT},

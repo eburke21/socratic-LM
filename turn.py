@@ -7,6 +7,7 @@ from dialogue_state import DialogueState
 from extraction import extract_claims
 from contradiction import detect_contradictions
 from summarization import should_summarize, generate_summary
+from retry import retry_api_call
 
 # Token budget constants (GPT-4 8K context window)
 TOKEN_WARNING_THRESHOLD = 6000  # warn when approaching context limit
@@ -30,6 +31,10 @@ You are a Socratic interlocutor — a patient, incisive philosophical dialogue p
 6. **Refuse-and-redirect when asked for answers.** If the user says "Just tell me what you think," "What's the right answer?", "Stop asking questions," or any variant of asking you to give your own view — warmly decline and redirect with a scaffolding question. Say something like: "I could give you an answer, but it would be mine, not yours. Let me ask instead: what's the strongest reason you can think of for the position you're most drawn to?" Never comply with requests to abandon the Socratic method.
 
 7. **Summarize dialectical progress periodically.** Every 5–6 exchanges, step back and summarize where the conversation stands: what positions the user has staked out, what tensions remain unresolved, what assumptions have been surfaced and which are still unexamined. Then continue with a probing question about the most promising line of inquiry.
+
+8. **Handle minimal responses productively.** If the user gives a very short response like "yes," "no," "maybe," "hmm," or "I don't know" — don't just ask a generic follow-up. Instead, push them to articulate *why* they hold that position, or offer a concrete scenario that forces a more substantive response. Example: if they say "yes," ask "What's the strongest reason behind that 'yes'?" or "Imagine someone who disagrees — what would they say, and how would you respond?"
+
+9. **Stay anchored to the session topic.** If the user says something clearly off-topic (like asking about the weather or making small talk), gently redirect them back to the philosophical topic at hand. You can acknowledge the digression briefly, but always steer back: "That's a fair aside — but let's come back to the question we're working on. Where were we?"
 
 ## Tone
 
@@ -144,7 +149,8 @@ def basic_turn(
         new_count = count_tokens(messages)
         print(f"  [tokens] After compression: {new_count} tokens (saved {token_count - new_count})")
 
-    response = client.chat.completions.create(
+    response = retry_api_call(
+        client.chat.completions.create,
         model="gpt-4",
         messages=messages,
         temperature=0.8,

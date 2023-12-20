@@ -2,6 +2,7 @@
 
 import json
 from openai import OpenAI
+from retry import retry_api_call
 
 EXTRACTION_SYSTEM_PROMPT = """\
 You are a philosophical claim extractor. Your job is to analyze a user's message and extract two things:
@@ -47,7 +48,8 @@ def extract_claims(client: OpenAI, user_message: str, existing_positions: list[s
     prompt = EXTRACTION_SYSTEM_PROMPT.replace("{existing_positions}", positions_str)
 
     try:
-        response = client.chat.completions.create(
+        response = retry_api_call(
+            client.chat.completions.create,
             model="gpt-4",
             messages=[
                 {"role": "system", "content": prompt},

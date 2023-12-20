@@ -2,6 +2,7 @@
 
 from openai import OpenAI
 from dialogue_state import DialogueState
+from retry import retry_api_call
 
 SUMMARY_SYSTEM_PROMPT = """\
 You are a seminar facilitator stepping in to take stock of a philosophical dialogue. Your job is to produce a concise dialectical summary of where the conversation stands.
@@ -45,7 +46,8 @@ def generate_summary(client: OpenAI, state: DialogueState) -> str:
     prompt = SUMMARY_SYSTEM_PROMPT.replace("{state_json}", state.to_json())
 
     try:
-        response = client.chat.completions.create(
+        response = retry_api_call(
+            client.chat.completions.create,
             model="gpt-4",
             messages=[
                 {"role": "system", "content": prompt},
