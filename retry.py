@@ -35,8 +35,8 @@ def retry_api_call(fn, *args, max_retries: int = MAX_RETRIES, **kwargs):
             last_error = e
             if attempt < max_retries:
                 delay = BASE_DELAY * (2 ** attempt)
-                print(f"  [retry] {type(e).__name__} — retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                print(f"  🔄 [retry] {type(e).__name__} — retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
                 time.sleep(delay)
             else:
-                print(f"  [retry] {type(e).__name__} — all {max_retries} retries exhausted")
+                print(f"  ❌ [retry] {type(e).__name__} — all {max_retries} retries exhausted")
     raise last_error

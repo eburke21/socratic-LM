@@ -83,8 +83,8 @@ def extract_claims(client: OpenAI, user_message: str, existing_positions: list[s
         return result
 
     except json.JSONDecodeError:
-        print(f"  [extraction warning] Could not parse JSON from response: {raw[:200]}")
+        print(f"  ⚠️  [extraction] Could not parse JSON from response: {raw[:200]}")
         return {"positions": [], "assumptions": []}
     except Exception as e:
-        print(f"  [extraction error] {e}")
+        print(f"  ❌ [extraction] {e}")
         return {"positions": [], "assumptions": []}

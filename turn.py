@@ -117,18 +117,18 @@ def basic_turn(
 
     # Debug output
     if new_positions or new_assumptions:
-        print(f"  [state] Positions: {state.user_positions}")
-        print(f"  [state] Assumptions: {state.assumptions_surfaced}")
-        print(f"  [state] Turn: {state.turn_count}")
+        print(f"  🔎 [state] Positions: {state.user_positions}")
+        print(f"  🔎 [state] Assumptions: {state.assumptions_surfaced}")
+        print(f"  🔎 [state] Turn: {state.turn_count}")
     if new_contradiction_strings:
-        print(f"  [state] NEW CONTRADICTIONS: {new_contradiction_strings}")
+        print(f"  ⚡ [state] NEW CONTRADICTIONS: {new_contradiction_strings}")
 
     # --- Stage 3a: Periodic summarization ---
     summary = ""
     if should_summarize(state.turn_count):
         summary = generate_summary(client, state)
         if summary:
-            print(f"  [summary] Triggered at turn {state.turn_count}")
+            print(f"  📝 [summary] Triggered at turn {state.turn_count}")
 
     # --- Stage 3b: Socratic response generation ---
     system_prompt = build_system_prompt(state)
@@ -138,16 +138,16 @@ def basic_turn(
 
     # --- Token budget check ---
     token_count = count_tokens(messages)
-    print(f"  [tokens] {token_count} tokens (threshold: {TOKEN_WARNING_THRESHOLD})")
+    print(f"  🔢 [tokens] {token_count} tokens (threshold: {TOKEN_WARNING_THRESHOLD})")
 
     if token_count > TOKEN_WARNING_THRESHOLD:
-        print(f"  [tokens] WARNING: Approaching context limit. Compressing history...")
+        print(f"  ⚠️  [tokens] WARNING: Approaching context limit. Compressing history...")
         compression_summary = generate_summary(client, state) if not summary else summary
         history.compress(compression_summary)
         # Rebuild messages with compressed history
         messages = [{"role": "system", "content": system_prompt}] + history.get_messages()
         new_count = count_tokens(messages)
-        print(f"  [tokens] After compression: {new_count} tokens (saved {token_count - new_count})")
+        print(f"  🗜️  [tokens] After compression: {new_count} tokens (saved {token_count - new_count})")
 
     response = retry_api_call(
         client.chat.completions.create,

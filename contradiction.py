@@ -111,8 +111,8 @@ def detect_contradictions(
         return validated
 
     except json.JSONDecodeError:
-        print(f"  [contradiction warning] Could not parse JSON from response: {raw[:200]}")
+        print(f"  ⚠️  [contradiction] Could not parse JSON from response: {raw[:200]}")
         return []
     except Exception as e:
-        print(f"  [contradiction error] {e}")
+        print(f"  ❌ [contradiction] {e}")
         return []

@@ -59,5 +59,5 @@ def generate_summary(client: OpenAI, state: DialogueState) -> str:
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print(f"  [summarization error] {e}")
+        print(f"  ❌ [summarization] {e}")
         return ""
