@@ -2,7 +2,7 @@
 
 A terminal-based philosophical dialogue partner that uses the Socratic method — it never tells you what to think, only asks better questions. Built on GPT-4 with a multi-stage LLM pipeline that tracks your positions, surfaces hidden assumptions, detects contradictions in your reasoning, and periodically summarizes dialectical progress.
 
-**📅 Built:** Fall 2023 | **🛠️ Stack:** Python 3.11, GPT-4 (OpenAI API), tiktoken
+**🛠️ Stack:** Python 3.11, GPT-4 (OpenAI API), tiktoken
 
 ## 💡 Motivation
 
@@ -18,22 +18,22 @@ Each user turn flows through a multi-stage pipeline where different tasks get di
 💭 User Input
     |
     v
-🔍 [Stage 1] Claim Extraction (temp=0, deterministic)
+🔍 Claim Extraction (temp=0, deterministic)
     Parse positions + assumptions from the user's message
     Deduplicate against previously tracked positions
     |
     v
-⚡ [Stage 2] Contradiction Detection (temp=0, deterministic)
+⚡️ Contradiction Detection (temp=0, deterministic)
     Compare new positions against all prior positions
     Flag genuine contradictions, skip refinements/restatements
     |
     v
-📝 [Stage 3a] Periodic Summarization (temp=0.3, semi-structured)
+📝 Periodic Summarization (temp=0.3, semi-structured)
     Every 6 turns, generate a dialectical progress report
     Also triggered when token budget approaches the context limit
     |
     v
-🏛️ [Stage 3b] Socratic Response Generation (temp=0.8, creative)
+🏛️ Socratic Response Generation (temp=0.8, creative)
     System prompt rebuilt every turn with full dialogue state injected
     9 behavioral rules enforce the Socratic constraint
     |
@@ -166,7 +166,7 @@ Long dialogues are managed through two mechanisms:
 - 🔢 **Token counting** with tiktoken (`cl100k_base` encoding) before every API call, with a 6,000-token warning threshold for GPT-4's 8K context window
 - 🗜️ **History compression** when the budget is exceeded — older messages are replaced with a `PRIOR DIALOGUE SUMMARY` system message, keeping the 4 most recent messages verbatim
 
-### 🛡️ Error Handling
+### 🙅‍♀️ Error Handling
 
 Three-tier strategy:
 
@@ -174,16 +174,16 @@ Three-tier strategy:
 2. 🪂 **Graceful degradation** — each pipeline stage returns safe defaults on failure (empty lists, empty strings), so one stage failing doesn't crash the turn
 3. 💬 **User-facing recovery** — the REPL catches any remaining errors with a friendly message and reminds the user to `/save`
 
-## 📁 Project Structure
+## 🗂️ Project Structure
 
 ```
 socratic-LM/
   main.py               # REPL entry point, command dispatch, topic selection
   dialogue_state.py     # DialogueState dataclass with JSON serialization
   conversation.py       # ConversationHistory with compression support
-  extraction.py         # Stage 1: claim extraction (positions + assumptions)
-  contradiction.py      # Stage 2: contradiction detection with calibration rules
-  summarization.py      # Stage 3a: periodic dialectical summaries
+  extraction.py         # Claim extraction (positions + assumptions)
+  contradiction.py      # Contradiction detection with calibration rules
+  summarization.py      # Periodic dialectical summaries
   turn.py               # Pipeline orchestrator (extraction -> contradiction -> summary -> generation)
   retry.py              # Exponential backoff wrapper for API calls
   session.py            # Session save/load (JSON) and export (Markdown)
@@ -213,14 +213,3 @@ python -m pytest test_integration.py -v
 # All tests
 python -m pytest -v
 ```
-
-## 🎯 Skills Demonstrated
-
-| Skill | Application |
-|---|---|
-| 🎨 **Prompt engineering & constraint design** | 9-rule Socratic system prompt with self-correction cues, redirect handling, and live state injection |
-| 🔗 **LLM pipeline orchestration** | Multi-stage pipeline with temperature tuned per task: extraction (0), contradiction (0), summarization (0.3), generation (0.8) |
-| 📄 **Structured output parsing** | JSON extraction with code-fence stripping, `raw_decode()` fallback, shape validation, and graceful degradation |
-| 🗂️ **Conversation state management** | Dataclass-based state tracking with JSON serialization, session persistence, and history compression |
-| 🐍 **Python application design** | Clean separation of concerns — extraction, contradiction, summarization, generation, and I/O are all independent modules |
-| 🔒 **AI alignment thinking** | Constraining an LLM against its trained default of helpfulness — a micro-alignment problem solved through layered behavioral rules |
