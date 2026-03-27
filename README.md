@@ -2,6 +2,8 @@
 
 A terminal-based philosophical dialogue partner that uses the Socratic method — it never tells you what to think, only asks better questions. Built on GPT-4 with a multi-stage LLM pipeline that tracks your positions, surfaces hidden assumptions, detects contradictions in your reasoning, and periodically summarizes dialectical progress.
 
+![Demo of Socratic Philosophy Dialogue Bot](demo.gif)
+
 **🛠️ Stack:** Python 3.11, GPT-4 (OpenAI API), tiktoken
 
 ## 💡 Motivation
